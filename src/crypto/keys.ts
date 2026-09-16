@@ -1,4 +1,4 @@
-import { createHash, generateKeyPairSync, randomBytes } from "node:crypto";
+import { generateKeyPairSync, randomBytes } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { config } from "../config.js";
@@ -6,10 +6,10 @@ import { config } from "../config.js";
 const KEY_ID = "master-v1";
 
 export function masterKey(): { id: string; key: Buffer } {
-  if (config.masterKeyHex.length === 64) {
+  if (/^[a-f0-9]{64}$/i.test(config.masterKeyHex)) {
     return { id: KEY_ID, key: Buffer.from(config.masterKeyHex, "hex") };
   }
-  return { id: "derived-dev", key: createHash("sha256").update(config.sessionSecret).digest() };
+  throw new Error("MASTER_KEY_HEX inválida. Configure as chaves antes de iniciar.");
 }
 
 export function ensureSigningKeys(): { privateKey: string; publicKey: string } {

@@ -1,0 +1,13 @@
+
+> maxpay@1.0.0 test
+> vitest run
+
+
+ RUN  v5.0.1 /Users/claudio/Code/me/school/sec/maxpay
+
+
+ Test Files  12 passed (12)
+      Tests  36 passed (36)
+   Start at  15:41:43
+   Duration  28.01s (tests 93%, import 6%, transform 1%)
+

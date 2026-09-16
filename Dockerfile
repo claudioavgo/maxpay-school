@@ -6,4 +6,4 @@ RUN npm ci
 COPY . .
 RUN npm run typecheck
 EXPOSE 8443
-CMD ["sh", "-c", "npm run keys >/dev/null && npm run seed && npm start"]
+CMD ["npm", "start"]

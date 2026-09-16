@@ -1,0 +1,12 @@
+<%- include("layout-top") %>
+<div class="card">
+  <h2>Verificar extrato</h2>
+  <p>Cole todo o conteúdo do CSV, incluindo as últimas linhas com o hash e a assinatura.</p>
+  <% if (result !== null) { %><p role="status" class="<%= result ? "ok" : "bad" %>"><%= result ? "Extrato autêntico. A assinatura é válida e o conteúdo não foi alterado." : "Não foi possível validar o extrato. O conteúdo foi alterado ou a assinatura está ausente ou inválida." %></p><% } %>
+  <form method="post" action="/verify-statement">
+    <label for="csv">Conteúdo do extrato CSV</label>
+    <textarea id="csv" name="csv" rows="12" required style="width:100%;box-sizing:border-box"></textarea>
+    <button type="submit">Verificar assinatura</button>
+  </form>
+</div>
+<%- include("layout-bottom") %>

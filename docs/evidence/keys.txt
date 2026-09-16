@@ -1,0 +1,11 @@
+Migração local em 16/09/2026, com o serviço parado.
+Backup privado criado antes das alterações; nenhuma chave foi registrada nesta evidência.
+PASS: 5 usuários preservados.
+PASS: 23 transações preservadas, com os mesmos hashes e assinaturas.
+PASS: saldos de todas as contas preservados.
+PASS: 1 comprovante preservado, legível e com hash/assinatura válidos.
+PASS: 7 mensagens de histórico preservadas.
+PASS: CPF de todos os usuários decifrável após a migração.
+PASS: verificação integral do livro-razão.
+PASS: validação de segredos sem valores de exemplo.
+PASS: serviço reiniciado e HTTPS respondendo HTTP 200.

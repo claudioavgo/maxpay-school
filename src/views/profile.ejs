@@ -1,4 +1,5 @@
 <%- include("layout-top") %>
+<% if (error) { %><div class="alert error" role="alert"><%= error %></div><% } %>
 <div class="card">
   <h2>Perfil</h2>
   <table>
@@ -13,13 +14,23 @@
 <div class="card">
   <h3>Autenticação em dois fatores (TOTP)</h3>
   <% if (mfa) { %>
-    <p>Adicione esta chave no seu aplicativo autenticador:</p>
-    <p><code><%= mfa.secret %></code></p>
-    <p><code><%= mfa.otpauth %></code></p>
+    <p>Escaneie o QR code no seu aplicativo autenticador (Google Authenticator, Authy, 1Password):</p>
+    <p><img src="<%= mfa.qr %>" alt="QR code para configurar o MFA" width="220" height="220" style="border-radius:8px;background:white;padding:8px"></p>
+    <p class="muted">Ou digite a chave manualmente: <code><%= mfa.secret %></code></p>
   <% } %>
   <div class="row">
     <% if (!me.mfa_enabled) { %><form method="post" action="/profile/mfa/enable"><button type="submit">Ativar MFA</button></form><% } %>
     <% if (me.mfa_enabled) { %><form method="post" action="/profile/mfa/disable"><button type="submit" class="danger">Desativar MFA</button></form><% } %>
   </div>
 </div>
+<% if (user.role === "customer") { %>
+<div class="card">
+  <h3>Excluir minha conta</h3>
+  <p>Transfira o saldo e aguarde as revisões pendentes. Seus dados de perfil, comprovantes e conversas serão removidos. O histórico financeiro será mantido sem seus dados de perfil.</p>
+  <form method="post" action="/profile/delete">
+    <label><input type="checkbox" name="confirm" value="excluir" required> Confirmo a exclusão da minha conta.</label>
+    <button type="submit" class="danger">Excluir minha conta</button>
+  </form>
+</div>
+<% } %>
 <%- include("layout-bottom") %>

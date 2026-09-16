@@ -17,6 +17,13 @@ const ALLOWED: Record<string, Buffer[]> = {
 export type StoreResult = { ok: true; receipt: ReceiptRow } | { ok: false; error: string };
 
 export function storeReceipt(ownerId: number, originalName: string, mime: string, data: Buffer, transactionId: number | null, ip: string): StoreResult {
+  if (transactionId !== null) {
+    const owned = getDb().prepare(`SELECT 1 FROM transactions t JOIN accounts a ON a.id = t.to_account_id
+      WHERE t.id = ? AND a.owner_id = ? AND t.from_account_id IS NULL AND t.status = 'flagged'
+      AND NOT EXISTS (SELECT 1 FROM receipts WHERE transaction_id = t.id)
+      AND NOT EXISTS (SELECT 1 FROM transaction_reviews WHERE transaction_id = t.id)`).get(transactionId, ownerId);
+    if (!owned) return { ok: false, error: "Depósito inválido ou já possui comprovante." };
+  }
   mkdirSync(config.uploadDir, { recursive: true });
   if (!vuln.UPLOAD) {
     if (data.length > config.maxUploadBytes) return { ok: false, error: "Arquivo maior que 2 MB." };
@@ -82,7 +89,7 @@ export function deleteReceipt(receipt: ReceiptRow): void {
   try {
     unlinkSync(join(config.uploadDir, receipt.stored_name));
   } catch {
-    return;
+    // The database entry must also be removed when the file is already absent.
   }
   getDb().prepare("DELETE FROM receipts WHERE id = ?").run(receipt.id);
 }

@@ -2,6 +2,8 @@ import { vuln } from "../config.js";
 import { getDb, type AccountRow, type TransactionRow } from "../db/index.js";
 import { sha256Hex } from "../crypto/hash.js";
 import { sign, verify } from "../crypto/signature.js";
+import { readReceipt } from "../receipts/service.js";
+import type { ReceiptRow } from "../db/index.js";
 import { logSecurityEvent } from "../security/events.js";
 
 const GENESIS = "0".repeat(64);
@@ -18,8 +20,8 @@ export function accountByNumber(number: string): AccountRow | undefined {
   return getDb().prepare("SELECT * FROM accounts WHERE number = ?").get(number) as AccountRow | undefined;
 }
 
-export function transactionPayload(t: Omit<TransactionRow, "hash" | "signature" | "id" | "created_at"> & { created_at: string }): string {
-  return [t.from_account_id ?? "", t.to_account_id ?? "", t.amount_cents, t.description, t.status, t.prev_hash, t.created_at].join("|");
+export function transactionPayload(t: Omit<TransactionRow, "hash" | "signature" | "id" | "created_at" | "funds_moved"> & { created_at: string; funds_moved?: number }): string {
+  return [t.from_account_id ?? "", t.to_account_id ?? "", t.amount_cents, t.description, t.status, t.prev_hash, t.created_at].join("|") + (t.funds_moved === 0 ? "|pending" : "");
 }
 
 function lastHash(): string {
@@ -34,11 +36,13 @@ export function recordTransaction(input: {
   description: string;
   status?: TransactionRow["status"];
   category?: string | null;
+  fundsMoved?: boolean;
 }): TransactionRow {
   const db = getDb();
   const created_at = new Date().toISOString();
   const prev_hash = lastHash();
   const base = {
+    funds_moved: input.fundsMoved === false ? 0 : 1,
     from_account_id: input.from,
     to_account_id: input.to,
     amount_cents: input.amountCents,
@@ -52,10 +56,10 @@ export function recordTransaction(input: {
   const signature = sign(hash);
   const r = db
     .prepare(
-      `INSERT INTO transactions (from_account_id, to_account_id, amount_cents, description, category, status, prev_hash, hash, signature, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO transactions (from_account_id, to_account_id, amount_cents, description, category, status, prev_hash, hash, signature, created_at, funds_moved)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
-    .run(base.from_account_id, base.to_account_id, base.amount_cents, base.description, base.category, base.status, prev_hash, hash, signature, created_at);
+    .run(base.from_account_id, base.to_account_id, base.amount_cents, base.description, base.category, base.status, prev_hash, hash, signature, created_at, input.fundsMoved === false ? 0 : 1);
   return db.prepare("SELECT * FROM transactions WHERE id = ?").get(r.lastInsertRowid) as TransactionRow;
 }
 
@@ -63,24 +67,28 @@ export type TransferResult = { ok: true; transaction: TransactionRow } | { ok: f
 
 const SUSPICIOUS_PATTERNS = /(ignore|ignor[ae]|instru[cç][õo]es|system prompt|aprovad[oa]|legitim[oa]|cpf de todos|todos os clientes)/i;
 
-export function transfer(fromUserId: number, toNumber: string, amountCents: number, description: string, ip: string): TransferResult {
+export function transfer(fromUserId: number, toNumber: string, amountCents: number, description: string, ip: string, category = "outros"): TransferResult {
   const db = getDb();
+  if (!CATEGORIES.includes(category)) return { ok: false, error: "Categoria inválida." };
   const from = accountOf(fromUserId);
   const to = accountByNumber(toNumber);
   if (!from) return { ok: false, error: "Conta de origem não encontrada." };
+  if (to && !(getDb().prepare("SELECT password_hash FROM users WHERE id = ?").get(to.owner_id) as { password_hash: string }).password_hash) return { ok: false, error: "Conta de destino encerrada." };
   if (!to) return { ok: false, error: "Conta de destino não encontrada." };
   if (to.id === from.id) return { ok: false, error: "Não é possível transferir para a própria conta." };
   if (!vuln.LOGIC) {
-    if (!Number.isInteger(amountCents) || amountCents <= 0) return { ok: false, error: "Valor inválido." };
+    if (!Number.isSafeInteger(amountCents) || amountCents <= 0) return { ok: false, error: "Valor inválido." };
     if (description.length > 140) return { ok: false, error: "Descrição muito longa." };
   }
   const flagged = amountCents >= 500_000 || SUSPICIOUS_PATTERNS.test(description);
   const run = db.transaction(() => {
     const fresh = accountById(from.id)!;
-    if (!vuln.LOGIC && fresh.balance_cents < amountCents) throw new Error("Saldo insuficiente.");
-    db.prepare("UPDATE accounts SET balance_cents = balance_cents - ? WHERE id = ?").run(amountCents, from.id);
-    db.prepare("UPDATE accounts SET balance_cents = balance_cents + ? WHERE id = ?").run(amountCents, to.id);
-    return recordTransaction({ from: from.id, to: to.id, amountCents, description, status: flagged ? "flagged" : "completed" });
+    if (!vuln.LOGIC && availableBalance(fresh) < amountCents) throw new Error("Saldo insuficiente.");
+    if (!flagged) {
+      db.prepare("UPDATE accounts SET balance_cents = balance_cents - ? WHERE id = ?").run(amountCents, from.id);
+      db.prepare("UPDATE accounts SET balance_cents = balance_cents + ? WHERE id = ?").run(amountCents, to.id);
+    }
+    return recordTransaction({ from: from.id, to: to.id, amountCents, description, category, fundsMoved: !flagged, status: flagged ? "flagged" : "completed" });
   });
   try {
     const transaction = run();
@@ -93,7 +101,7 @@ export function transfer(fromUserId: number, toNumber: string, amountCents: numb
 
 export function transactionsForAccount(accountId: number): TransactionRow[] {
   return getDb()
-    .prepare("SELECT * FROM transactions WHERE from_account_id = ? OR to_account_id = ? ORDER BY id DESC")
+    .prepare("SELECT t.*, COALESCE(r.status, t.status) AS status FROM transactions t LEFT JOIN transaction_reviews r ON r.transaction_id = t.id WHERE from_account_id = ? OR to_account_id = ? ORDER BY t.id DESC")
     .all(accountId, accountId) as TransactionRow[];
 }
 
@@ -104,7 +112,7 @@ export function searchTransactions(accountId: number, term: string): Transaction
     return db.prepare(sql).all() as TransactionRow[];
   }
   return db
-    .prepare("SELECT * FROM transactions WHERE (from_account_id = ? OR to_account_id = ?) AND description LIKE ? ORDER BY id DESC")
+    .prepare("SELECT t.*, COALESCE(r.status, t.status) AS status FROM transactions t LEFT JOIN transaction_reviews r ON r.transaction_id = t.id WHERE (from_account_id = ? OR to_account_id = ?) AND description LIKE ? ORDER BY t.id DESC")
     .all(accountId, accountId, `%${term}%`) as TransactionRow[];
 }
 
@@ -125,14 +133,60 @@ export function verifyLedger(): IntegrityReport {
     else if (!verify(t.hash, t.signature)) broken.push({ id: t.id, reason: "bad_signature" });
     prev = t.hash;
   }
+  const reviews = getDb().prepare("SELECT r.*, t.hash FROM transaction_reviews r JOIN transactions t ON t.id = r.transaction_id").all() as Array<{ transaction_id: number; status: string; reviewer_id: number; signature: string; hash: string }>;
+  for (const r of reviews) {
+    if (!verify(`${r.hash}|${r.status}|${r.reviewer_id}`, r.signature)) broken.push({ id: r.transaction_id, reason: "bad_signature" });
+  }
   if (broken.length) logSecurityEvent("ledger_integrity_failure", "critical", { details: broken });
   return { ok: broken.length === 0, checked: rows.length, broken };
 }
 
-export function flaggedTransactions(): TransactionRow[] {
-  return getDb().prepare("SELECT * FROM transactions WHERE status = 'flagged' ORDER BY id DESC").all() as TransactionRow[];
+export const CATEGORIES = ["mercado", "transporte", "lazer", "contas", "saúde", "educação", "outros"];
+
+export function availableBalance(account: AccountRow): number {
+  const pending = getDb().prepare(`SELECT COALESCE(SUM(amount_cents), 0) AS amount FROM transactions
+    WHERE from_account_id = ? AND status = 'flagged' AND funds_moved = 0
+    AND id NOT IN (SELECT transaction_id FROM transaction_reviews)`).get(account.id) as { amount: number };
+  return account.balance_cents - pending.amount;
 }
 
-export function setTransactionStatus(id: number, status: TransactionRow["status"]): void {
-  getDb().prepare("UPDATE transactions SET status = ? WHERE id = ?").run(status, id);
+export function flaggedTransactions(): Array<TransactionRow & { receipt_id: number | null; from_number: string | null; to_number: string | null }> {
+  return getDb().prepare(`SELECT t.*, receipts.id AS receipt_id, origin.number AS from_number, destination.number AS to_number FROM transactions t
+    LEFT JOIN accounts origin ON origin.id = t.from_account_id
+    LEFT JOIN accounts destination ON destination.id = t.to_account_id
+    LEFT JOIN receipts ON receipts.transaction_id = t.id
+    WHERE t.status = 'flagged' AND t.id NOT IN (SELECT transaction_id FROM transaction_reviews)
+    ORDER BY t.id DESC`).all() as Array<TransactionRow & { receipt_id: number | null; from_number: string | null; to_number: string | null }>;
+}
+
+export function reviewTransaction(id: number, status: "completed" | "reversed", reviewerId: number, ip: string): void {
+  const db = getDb();
+  db.transaction(() => {
+    const t = db.prepare("SELECT * FROM transactions WHERE id = ?").get(id) as TransactionRow | undefined;
+    if (!t || t.status !== "flagged" || db.prepare("SELECT 1 FROM transaction_reviews WHERE transaction_id = ?").get(id)) throw new Error("Transação não está pendente.");
+    if (!["completed", "reversed"].includes(status)) throw new Error("Decisão inválida.");
+    if (!verifyLedger().ok) throw new Error("Falha de integridade no livro-razão.");
+    const ownAccount = accountOf(reviewerId);
+    if (!vuln.LOGIC && ownAccount && [t.from_account_id, t.to_account_id].includes(ownAccount.id)) throw new Error("Não é permitido revisar a própria transação.");
+    if (status === "completed" && t.from_account_id === null) {
+      const receipt = db.prepare("SELECT * FROM receipts WHERE transaction_id = ?").get(id) as ReceiptRow | undefined;
+      if (!receipt || !readReceipt(receipt, ip).ok) throw new Error("Comprovante ausente ou com falha de integridade.");
+    }
+    if (status === "completed" && !t.funds_moved) {
+      if (t.from_account_id !== null) {
+        const result = db.prepare("UPDATE accounts SET balance_cents = balance_cents - ? WHERE id = ? AND balance_cents >= ?").run(t.amount_cents, t.from_account_id, t.amount_cents);
+        if (!result.changes) throw new Error("Saldo insuficiente.");
+      }
+      db.prepare("UPDATE accounts SET balance_cents = balance_cents + ? WHERE id = ?").run(t.amount_cents, t.to_account_id);
+    }
+    // Older flagged transfers already moved money. Rejecting them must refund it.
+    if (status === "reversed" && t.funds_moved) {
+      const result = db.prepare("UPDATE accounts SET balance_cents = balance_cents - ? WHERE id = ? AND balance_cents >= ?").run(t.amount_cents, t.to_account_id, t.amount_cents);
+      if (!result.changes) throw new Error("Saldo do destinatário insuficiente para estornar.");
+      db.prepare("UPDATE accounts SET balance_cents = balance_cents + ? WHERE id = ?").run(t.amount_cents, t.from_account_id);
+    }
+    db.prepare("INSERT INTO transaction_reviews (transaction_id, status, reviewer_id, signature) VALUES (?, ?, ?, ?)")
+      .run(id, status, reviewerId, sign(`${t.hash}|${status}|${reviewerId}`));
+    logSecurityEvent("transaction_review", "info", { userId: reviewerId, ip, details: { id, status } });
+  })();
 }

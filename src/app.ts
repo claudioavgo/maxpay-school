@@ -1,5 +1,6 @@
 import Fastify from "fastify";
 import fastifySecureSession from "@fastify/secure-session";
+import fastifyStatic from "@fastify/static";
 import fastifyView from "@fastify/view";
 import fastifyFormbody from "@fastify/formbody";
 import fastifyMultipart from "@fastify/multipart";
@@ -9,7 +10,7 @@ import ejs from "ejs";
 import { createHash } from "node:crypto";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { config, vuln } from "./config.js";
+import { config, vuln, validateSecrets } from "./config.js";
 import { getDb } from "./db/index.js";
 import { ensureSigningKeys } from "./crypto/keys.js";
 import { apiRoutes } from "./routes/api.js";
@@ -18,13 +19,14 @@ import { pageRoutes } from "./routes/pages.js";
 const here = dirname(fileURLToPath(import.meta.url));
 
 export async function buildApp(opts: { logger?: boolean; https?: { key: Buffer; cert: Buffer } } = {}) {
+  validateSecrets();
   getDb();
   ensureSigningKeys();
   const app = Fastify({ logger: opts.logger ?? false, trustProxy: false, bodyLimit: config.maxUploadBytes + 64 * 1024, ...(opts.https ? { https: opts.https } : {}) });
 
   if (!vuln.MISCONFIG) {
     await app.register(fastifyHelmet, {
-      contentSecurityPolicy: { directives: { defaultSrc: ["'self'"], styleSrc: ["'self'", "'unsafe-inline'"], imgSrc: ["'self'", "data:"] } },
+      contentSecurityPolicy: vuln.XSS ? false : { directives: { defaultSrc: ["'self'"], styleSrc: ["'self'", "'unsafe-inline'"], imgSrc: ["'self'", "data:"] } },
       hsts: { maxAge: 31536000 },
     });
   }
@@ -51,6 +53,7 @@ export async function buildApp(opts: { logger?: boolean; https?: { key: Buffer; 
     return reply.code(status).send({ error: status >= 500 ? "Erro interno." : err.message });
   });
 
+  await app.register(fastifyStatic, { root: join(here, "../public"), prefix: "/assets/" });
   await app.register(apiRoutes);
   await app.register(pageRoutes);
   return app;

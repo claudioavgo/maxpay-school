@@ -1,0 +1,1 @@
+PASS: imagem construída, HTTPS disponível, banco inicializado uma vez, 5 usuários e saldo alterado preservados após reinício.

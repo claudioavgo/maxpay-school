@@ -25,10 +25,10 @@ export function setVuln(name: VulnName, on: boolean): void {
 
 export const config = {
   port: Number(process.env.PORT ?? 8443),
-  sessionSecret: process.env.SESSION_SECRET ?? "dev-secret-dev-secret-dev-secret-dev",
+  sessionSecret: process.env.SESSION_SECRET ?? "",
   masterKeyHex: process.env.MASTER_KEY_HEX ?? "",
-  anthropicApiKey: process.env.ANTHROPIC_API_KEY ?? "",
-  anthropicModel: process.env.ANTHROPIC_MODEL ?? "claude-sonnet-5",
+  deepseekApiKey: process.env.DEEPSEEK_API_KEY ?? "",
+  deepseekModel: process.env.DEEPSEEK_MODEL ?? "deepseek-flash",
   adminPassword: process.env.ADMIN_PASSWORD ?? "Admin#MaxPay2026",
   dbPath: process.env.DB_PATH ?? "data/maxpay.db",
   uploadDir: process.env.UPLOAD_DIR ?? "uploads",
@@ -37,3 +37,10 @@ export const config = {
   lockoutMinutes: 15,
   maxUploadBytes: 2 * 1024 * 1024,
 };
+
+export function validateSecrets(): void {
+  if (config.sessionSecret.length < 32 || ["dev-secret-dev-secret-dev-secret-dev", "change-me-32-bytes-minimum-please-change-me"].includes(config.sessionSecret)) {
+    throw new Error("Configure um SESSION_SECRET aleatório com npm run keys. Em banco existente, use npm run keys:rotate com o serviço parado.");
+  }
+  if (!/^[a-f0-9]{64}$/i.test(config.masterKeyHex)) throw new Error("Configure MASTER_KEY_HEX com 32 bytes aleatórios. Use npm run keys para instalação nova ou npm run keys:rotate para preservar um banco existente.");
+}

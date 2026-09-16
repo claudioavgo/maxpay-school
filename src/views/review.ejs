@@ -1,17 +1,25 @@
 <%- include("layout-top") %>
+<% if (error) { %><div class="alert error" role="alert"><%= error %></div><% } %>
+<% if (msg) { %><div class="alert ok"><%= msg %></div><% } %>
 <div class="card">
   <h2>Integridade do livro-razão</h2>
   <p class="<%= ledger.ok ? "ok" : "bad" %>"><%= ledger.ok ? "Íntegro" : "VIOLAÇÃO DETECTADA" %>: <%= ledger.checked %> transações verificadas (hash encadeado + assinatura RSA).</p>
   <% if (!ledger.ok) { %><ul><% for (const b of ledger.broken) { %><li>Transação #<%= b.id %>: <%= b.reason %></li><% } %></ul><% } %>
 </div>
 <div class="card">
-  <h2>Transações sinalizadas</h2>
-  <table><tr><th>#</th><th>Valor</th><th>Descrição</th><th>Score IA</th><th>Motivo</th></tr>
+  <h2>Depósitos e transferências em análise</h2>
+  <table><tr><th>#</th><th>Contas</th><th>Valor</th><th>Descrição</th><th>Regras de risco</th><th>Motivo</th><th>Comprovante</th><th>Decisão</th></tr>
   <% for (const t of flagged) { %>
-    <tr><td><%= t.id %></td><td><%= cents(t.amount_cents) %></td>
+    <tr><td><%= t.id %></td><td><%= t.from_number || "Depósito" %><br>Para <%= t.to_number %></td><td><%= cents(t.amount_cents) %></td>
       <td><% if (escapeOff()) { %><%- t.description %><% } else { %><%= t.description %><% } %></td>
-      <td class="<%= t.ai.score >= 60 ? "bad" : "warn" %>"><%= t.ai.score %></td><td><%= t.ai.reason %></td></tr>
+      <td class="<%= t.risk.score >= 60 ? "bad" : "warn" %>"><%= t.risk.score %></td><td><%= t.from_account_id === null ? "Conferir comprovante de depósito" : t.risk.reason %></td>
+      <td><% if (t.receipt_id) { %><a href="/api/receipts/<%= t.receipt_id %>" target="_blank" rel="noopener">Abrir comprovante</a><% } else { %>Transferência<% } %></td>
+      <td><form method="post" action="/review/<%= t.id %>" class="row">
+        <button name="status" value="completed">Aprovar</button>
+        <button name="status" value="reversed" class="danger"><%= t.funds_moved ? "Estornar" : "Rejeitar" %></button>
+      </form></td></tr>
   <% } %></table>
+  <% if (!flagged.length) { %><p class="muted">Nenhuma transação aguardando revisão.</p><% } %>
 </div>
 <div class="card">
   <h2>Clientes</h2>

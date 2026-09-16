@@ -28,6 +28,8 @@ export function establishSession(req: FastifyRequest, user: UserRow): void {
 export function currentUser(req: FastifyRequest): SessionUser | null {
   const user = req.session.get("user");
   if (!user) return null;
+  const row = loadUser(user.id);
+  if (!row?.password_hash) { req.session.delete(); return null; }
   if (!vuln.SESSION) {
     const lastSeen = req.session.get("lastSeen") ?? 0;
     if (Date.now() - lastSeen > IDLE_TIMEOUT_MS) {

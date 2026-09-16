@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -13,6 +14,9 @@ export const ADMIN = { email: "admin@maxpay.local", password: "Admin#MaxPay2026"
 
 export async function freshApp(flags: Partial<Record<VulnName, boolean>> = {}): Promise<FastifyInstance> {
   for (const k of Object.keys(vuln) as VulnName[]) setVuln(k, flags[k] ?? false);
+  config.deepseekApiKey = "";
+  config.sessionSecret = randomBytes(32).toString("hex");
+  config.masterKeyHex = randomBytes(32).toString("hex");
   const dir = mkdtempSync(join(tmpdir(), "maxpay-"));
   config.uploadDir = join(dir, "uploads");
   config.certDir = join(dir, "certs");

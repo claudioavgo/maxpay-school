@@ -9,7 +9,9 @@
     "start": "tsx src/server.ts",
     "seed": "tsx src/db/seed.ts",
     "keys": "tsx src/crypto/generate-keys.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "keys:rotate": "tsx src/crypto/rotate-keys.ts",
+    "test:browser": "tsx scripts/check-browser.ts"
   },
   "keywords": [],
   "author": "",
@@ -17,7 +19,6 @@
   "type": "module",
   "private": "true",
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.126.0",
     "@faker-js/faker": "^10.6.0",
     "@fastify/formbody": "^9.0.0",
     "@fastify/helmet": "^13.1.1",
@@ -30,12 +31,15 @@
     "better-sqlite3": "^13.0.3",
     "ejs": "^6.0.1",
     "fastify": "^5.12.5",
-    "otplib": "^13.5.0"
+    "otplib": "^13.5.0",
+    "qrcode": "^1.5.4"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^9.6.0",
     "@types/ejs": "^3.1.5",
     "@types/node": "^22.20.3",
+    "@types/qrcode": "^1.5.6",
+    "playwright": "^1.63.0",
     "tsx": "^4.23.13",
     "typescript": "^7.0.2",
     "vitest": "^5.0.1"

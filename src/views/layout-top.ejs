@@ -28,6 +28,7 @@
 <body>
 <header>
   <span class="brand">MaxPay</span>
+  <a href="/verify-statement">Verificar extrato</a>
   <% if (user) { %>
     <% if (user.role === "customer") { %><a href="/dashboard">Conta</a><a href="/assistant">Assistente</a><% } %>
     <% if (user.role !== "customer") { %><a href="/review">Revisão</a><% } %>

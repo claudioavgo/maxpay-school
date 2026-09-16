@@ -31,7 +31,7 @@ export async function seed(): Promise<SeedUser[]> {
   faker.seed(42);
   const db = getDb();
   ensureSigningKeys();
-  db.exec("DELETE FROM ai_messages; DELETE FROM security_events; DELETE FROM receipts; DELETE FROM transactions; DELETE FROM accounts; DELETE FROM users;");
+  db.exec("DELETE FROM ai_messages; DELETE FROM security_events; DELETE FROM receipts; DELETE FROM transaction_reviews; DELETE FROM transactions; DELETE FROM accounts; DELETE FROM users;");
 
   const users: SeedUser[] = [
     { email: "admin@maxpay.local", password: config.adminPassword, role: "admin", name: "Administrador MaxPay" },
@@ -70,6 +70,7 @@ export async function seed(): Promise<SeedUser[]> {
 }
 
 if (process.argv[1]?.endsWith("seed.ts")) {
+  if (getDb().prepare("SELECT 1 FROM users LIMIT 1").get() && !process.argv.includes("--reset")) throw new Error("Banco já inicializado. Use npm run seed -- --reset somente para apagar e recriar os dados.");
   const users = await seed();
   console.log("Seed concluído. Usuários:");
   for (const u of users) console.log(`  ${u.role.padEnd(8)} ${u.email.padEnd(24)} ${u.password}`);

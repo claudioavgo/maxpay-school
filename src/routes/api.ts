@@ -4,11 +4,12 @@ import { getDb, type UserRow } from "../db/index.js";
 import { login } from "../auth/login.js";
 import { establishSession, destroySession } from "../auth/session.js";
 import { ownsOrPrivileged, requireAuth, requireRole } from "../authz/guards.js";
-import { accountById, accountOf, flaggedTransactions, searchTransactions, setTransactionStatus, transactionsForAccount, transfer, verifyLedger } from "../accounts/service.js";
+import { accountById, accountOf, flaggedTransactions, searchTransactions, reviewTransaction, transactionsForAccount, transfer, verifyLedger } from "../accounts/service.js";
 import { statementCsv } from "../accounts/statement.js";
 import { readReceipt, receiptById, receiptsOf, storeReceipt } from "../receipts/service.js";
+import { requestDeposit } from "../accounts/deposits.js";
 import { ask, suspicionScore } from "../ai/assistant.js";
-import { anonymizedDatasetCsv, userView } from "../security/privacy.js";
+import { closeAccount, anonymizedDatasetCsv, userView } from "../security/privacy.js";
 import { listSecurityEvents } from "../security/events.js";
 import { publicKeyPem } from "../crypto/signature.js";
 
@@ -56,13 +57,13 @@ export async function apiRoutes(app: FastifyInstance): Promise<void> {
     }
   });
 
-  app.post<{ Body: { to: string; amount_cents: number; description?: string } }>("/api/transfers", {
+  app.post<{ Body: { to: string; amount_cents: number; description?: string; category?: string } }>("/api/transfers", {
     config: { rateLimit: { max: 30, timeWindow: "1 minute" } },
-    schema: vuln.LOGIC ? undefined : { body: { type: "object", required: ["to", "amount_cents"], properties: { to: { type: "string" }, amount_cents: { type: "integer", minimum: 1 }, description: { type: "string", maxLength: 140 } } } },
+    schema: vuln.LOGIC ? undefined : { body: { type: "object", required: ["to", "amount_cents"], properties: { to: { type: "string" }, amount_cents: { type: "integer", minimum: 1 }, description: { type: "string", maxLength: 140 }, category: { type: "string" } } } },
   }, async (req, reply) => {
     const user = requireRole(req, reply, "customer");
     if (!user) return;
-    const r = transfer(user.id, String(req.body.to), Number(req.body.amount_cents), String(req.body.description ?? ""), req.ip);
+    const r = transfer(user.id, String(req.body.to), Number(req.body.amount_cents), String(req.body.description ?? ""), req.ip, req.body.category);
     if (!r.ok) return reply.code(400).send({ error: r.error });
     return r.transaction;
   });
@@ -100,6 +101,17 @@ export async function apiRoutes(app: FastifyInstance): Promise<void> {
     return r.receipt;
   });
 
+  app.post("/api/deposits", async (req, reply) => {
+    const user = requireRole(req, reply, "customer");
+    if (!user) return;
+    const file = await req.file();
+    if (!file) return reply.code(400).send({ error: "Envie o comprovante." });
+    const data = await file.toBuffer();
+    const field = file.fields.amount_cents as { value?: string } | undefined;
+    const result = requestDeposit(user.id, Number(field?.value), file.filename, file.mimetype, data, req.ip);
+    return result.ok ? result.transaction : reply.code(400).send({ error: result.error });
+  });
+
   app.get("/api/receipts", async (req, reply) => {
     const user = requireAuth(req, reply);
     if (!user) return;
@@ -133,15 +145,16 @@ export async function apiRoutes(app: FastifyInstance): Promise<void> {
     const user = requireRole(req, reply, "analyst", "admin");
     if (!user) return;
     const rows = flaggedTransactions();
-    return Promise.all(rows.map(async (t) => ({ ...t, ai: await suspicionScore(t) })));
+    return Promise.all(rows.map(async (t) => ({ ...t, risk: await suspicionScore(t) })));
   });
 
   app.post<{ Params: { id: string }; Body: { status: "completed" | "reversed" } }>("/api/review/:id", {
     schema: { body: { type: "object", required: ["status"], properties: { status: { type: "string", enum: ["completed", "reversed"] } } } },
   }, async (req, reply) => {
-    const user = requireRole(req, reply, "analyst", "admin");
+    const user = vuln.LOGIC ? requireAuth(req, reply) : requireRole(req, reply, "analyst", "admin");
     if (!user) return;
-    setTransactionStatus(Number(req.params.id), req.body.status);
+    try { reviewTransaction(Number(req.params.id), req.body.status, user.id, req.ip); }
+    catch (e) { return reply.code(400).send({ error: (e as Error).message }); }
     return { ok: true };
   });
 
@@ -169,7 +182,8 @@ export async function apiRoutes(app: FastifyInstance): Promise<void> {
   app.delete("/api/me", async (req, reply) => {
     const user = requireRole(req, reply, "customer");
     if (!user) return;
-    getDb().prepare("DELETE FROM users WHERE id = ?").run(user.id);
+    try { closeAccount(user.id); }
+    catch (e) { return reply.code(400).send({ error: (e as Error).message }); }
     destroySession(req, reply);
     return { ok: true };
   });

@@ -2,7 +2,8 @@ import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import { execSync } from "node:child_process";
 import { join } from "node:path";
 import { buildApp } from "./app.js";
-import { config } from "./config.js";
+import { initializeDatabase } from "./db/initialize.js";
+import { config, validateSecrets } from "./config.js";
 
 function ensureTlsCert(): { key: Buffer; cert: Buffer } {
   mkdirSync(config.certDir, { recursive: true });
@@ -14,6 +15,8 @@ function ensureTlsCert(): { key: Buffer; cert: Buffer } {
   return { key: readFileSync(key), cert: readFileSync(cert) };
 }
 
+validateSecrets();
+await initializeDatabase();
 const app = await buildApp({ logger: true, https: ensureTlsCert() });
 await app.listen({ port: config.port, host: "0.0.0.0" });
 app.log.info(`MaxPay em https://localhost:${config.port}`);

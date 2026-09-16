@@ -1,0 +1,7 @@
+
+> maxpay@1.0.0 test:browser
+> tsx scripts/check-browser.ts
+
+XSS vulnerável: execução comprovada
+XSS corrigido: execução bloqueada
+Chat: envio e histórico preservados.

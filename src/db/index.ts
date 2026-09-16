@@ -40,6 +40,7 @@ export interface TransactionRow {
   hash: string;
   signature: string;
   created_at: string;
+  funds_moved: number;
 }
 
 export interface ReceiptRow {
@@ -113,6 +114,12 @@ function migrate(d: Database.Database): void {
       signature TEXT NOT NULL,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
+    CREATE TABLE IF NOT EXISTS transaction_reviews (
+      transaction_id INTEGER PRIMARY KEY REFERENCES transactions(id),
+      status TEXT NOT NULL CHECK (status IN ('completed', 'reversed')),
+      reviewer_id INTEGER NOT NULL,
+      signature TEXT NOT NULL
+    );
     CREATE TABLE IF NOT EXISTS receipts (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       owner_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -146,4 +153,8 @@ function migrate(d: Database.Database): void {
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
   `);
+  const columns = d.prepare("PRAGMA table_info(transactions)").all() as Array<{ name: string }>;
+  if (!columns.some(c => c.name === "funds_moved")) {
+    d.exec("ALTER TABLE transactions ADD COLUMN funds_moved INTEGER NOT NULL DEFAULT 1");
+  }
 }

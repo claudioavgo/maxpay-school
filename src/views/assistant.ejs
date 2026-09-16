@@ -1,23 +1,42 @@
 <%- include("layout-top") %>
-<div class="card">
-  <h2>Assistente financeiro</h2>
-  <p class="muted">O assistente vê apenas as suas transações e não altera nada na conta.</p>
-  <form method="post" action="/assistant" class="row">
-    <input name="question" maxlength="500" style="width:520px" placeholder="Quanto gastei com mercado este mês?" required>
-    <button type="submit">Perguntar</button>
-  </form>
-  <% if (result) { %>
-    <div class="alert <%= result.injectionDetected ? "error" : "ok" %>" style="margin-top:12px">
-      <% if (result.injectionDetected) { %><strong>Tentativa de instrução indevida detectada e registrada.</strong><br><% } %>
-      <%= result.answer %>
-      <div class="muted">provedor: <%= result.provider %>, transações no contexto: <%= result.contextSize %></div>
-    </div>
-  <% } %>
-</div>
-<div class="card">
-  <h3>Histórico</h3>
-  <% for (const h of history) { %>
-    <p><strong>Você:</strong> <%= h.question %><br><strong>Assistente:</strong> <%= h.answer %> <% if (h.injection_detected) { %><span class="badge warn">injeção</span><% } %></p>
-  <% } %>
-</div>
+<link rel="stylesheet" href="/assets/chat.css">
+<section class="chat" aria-labelledby="chat-title">
+  <div class="chat-heading">
+    <span class="chat-avatar" aria-hidden="true">M</span>
+    <div><h1 id="chat-title">Assistente MaxPay</h1><p>Uma conversa sobre o seu dinheiro.</p></div>
+    <span class="chat-label">Assistente financeiro</span>
+  </div>
+  <div id="chat-messages" class="chat-messages" role="log" aria-label="Conversa com o assistente" aria-live="polite" aria-relevant="additions text" tabindex="0">
+    <% if (!history.length) { %>
+      <div class="chat-welcome" id="chat-welcome">
+        <span class="welcome-icon" aria-hidden="true">M</span>
+        <h2>Como posso ajudar?</h2>
+        <p>Entenda seus gastos, confira suas entradas<br>ou tire uma dúvida sobre o extrato.</p>
+        <div class="chat-suggestions">
+          <button type="button" data-question="Quanto gastei este mês?">Quanto gastei este mês?</button>
+          <button type="button" data-question="Quais são minhas maiores categorias de gastos?">Onde estou gastando mais?</button>
+          <button type="button" data-question="Tenho alguma transação em análise?">Tenho algo em análise?</button>
+        </div>
+      </div>
+    <% } %>
+    <% for (const h of history) { %>
+      <article class="chat-message chat-message-user" aria-label="Sua mensagem">
+        <span class="message-author">Você</span><div class="message-text"><%= h.question %></div>
+      </article>
+      <article class="chat-message chat-message-assistant" aria-label="Resposta do assistente">
+        <span class="message-author">MaxPay</span><div class="message-text"><%= h.answer %></div>
+      </article>
+    <% } %>
+  </div>
+  <div class="chat-bottom">
+    <p id="chat-error" class="chat-error" role="alert" <%= error ? "" : "hidden" %>><%= error || "" %></p>
+    <form id="chat-form" class="chat-composer" method="post" action="/assistant">
+      <label class="sr-only" for="chat-question">Sua mensagem</label>
+      <textarea id="chat-question" name="question" rows="1" maxlength="500" placeholder="Pergunte sobre suas transações…" required><%= question || "" %></textarea>
+      <button id="chat-send" type="submit" aria-label="Enviar mensagem"><span>Enviar</span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 19V5m-6 6 6-6 6 6"/></svg></button>
+    </form>
+    <p class="chat-footnote">O assistente consulta suas transações, mas não movimenta seu dinheiro.</p>
+  </div>
+</section>
+<script src="/assets/chat.js" defer></script>
 <%- include("layout-bottom") %>
