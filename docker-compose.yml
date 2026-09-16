@@ -1,0 +1,14 @@
+services:
+  maxpay:
+    build: .
+    ports:
+      - "8443:8443"
+    env_file: .env
+    volumes:
+      - maxpay-data:/app/data
+      - maxpay-uploads:/app/uploads
+      - maxpay-certs:/app/certs
+volumes:
+  maxpay-data:
+  maxpay-uploads:
+  maxpay-certs:

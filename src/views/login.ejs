@@ -1,0 +1,14 @@
+<%- include("layout-top") %>
+<div class="card" style="max-width:420px;margin:40px auto">
+  <h2>Entrar</h2>
+  <% if (error) { %><div class="alert error"><%= error %></div><% } %>
+  <% if (mfa) { %><div class="alert ok">Informe o código do seu aplicativo autenticador.</div><% } %>
+  <form method="post" action="/login">
+    <p><label>E-mail<br><input name="email" type="email" required style="width:100%"></label></p>
+    <p><label>Senha<br><input name="password" type="password" required style="width:100%"></label></p>
+    <p><label>Código MFA (se ativado)<br><input name="totp" inputmode="numeric" autocomplete="one-time-code" style="width:100%"></label></p>
+    <button type="submit">Entrar</button>
+  </form>
+  <p class="muted">Contas de demonstração são criadas pelo comando <code>npm run seed</code>.</p>
+</div>
+<%- include("layout-bottom") %>

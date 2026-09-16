@@ -1,0 +1,25 @@
+<%- include("layout-top") %>
+<div class="card">
+  <h2>Perfil</h2>
+  <table>
+    <tr><th>Nome</th><td><%= me.name %></td></tr>
+    <tr><th>E-mail</th><td><%= me.email %></td></tr>
+    <tr><th>CPF</th><td><%= me.cpf %></td></tr>
+    <tr><th>Telefone</th><td><%= me.phone %></td></tr>
+    <tr><th>Papel</th><td><%= me.role %></td></tr>
+    <tr><th>MFA</th><td><%= me.mfa_enabled ? "ativado" : "desativado" %></td></tr>
+  </table>
+</div>
+<div class="card">
+  <h3>Autenticação em dois fatores (TOTP)</h3>
+  <% if (mfa) { %>
+    <p>Adicione esta chave no seu aplicativo autenticador:</p>
+    <p><code><%= mfa.secret %></code></p>
+    <p><code><%= mfa.otpauth %></code></p>
+  <% } %>
+  <div class="row">
+    <% if (!me.mfa_enabled) { %><form method="post" action="/profile/mfa/enable"><button type="submit">Ativar MFA</button></form><% } %>
+    <% if (me.mfa_enabled) { %><form method="post" action="/profile/mfa/disable"><button type="submit" class="danger">Desativar MFA</button></form><% } %>
+  </div>
+</div>
+<%- include("layout-bottom") %>

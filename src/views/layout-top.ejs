@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MaxPay</title>
+<style>
+  :root { --bg:#0f172a; --card:#1e293b; --text:#e2e8f0; --muted:#94a3b8; --accent:#22c55e; --danger:#ef4444; --warn:#f59e0b; }
+  body { margin:0; font-family: system-ui, sans-serif; background:var(--bg); color:var(--text); }
+  header { display:flex; align-items:center; gap:16px; padding:12px 24px; background:var(--card); border-bottom:1px solid #334155; }
+  header a { color:var(--text); text-decoration:none; margin-right:12px; }
+  header .brand { font-weight:700; color:var(--accent); font-size:1.2em; }
+  main { max-width:1000px; margin:24px auto; padding:0 16px; }
+  .card { background:var(--card); border-radius:8px; padding:16px; margin-bottom:16px; }
+  input, textarea, select, button { font: inherit; padding:8px; border-radius:6px; border:1px solid #475569; background:#0b1220; color:var(--text); }
+  button { background:var(--accent); color:#052e16; border:none; cursor:pointer; font-weight:600; }
+  button.danger { background:var(--danger); color:white; }
+  table { width:100%; border-collapse:collapse; font-size:0.92em; }
+  th, td { text-align:left; padding:6px 8px; border-bottom:1px solid #334155; vertical-align:top; }
+  .muted { color:var(--muted); } .ok { color:var(--accent); } .bad { color:var(--danger); } .warn { color:var(--warn); }
+  .alert { padding:10px 12px; border-radius:6px; margin-bottom:12px; }
+  .alert.error { background:#7f1d1d; } .alert.ok { background:#14532d; }
+  .row { display:flex; gap:12px; flex-wrap:wrap; align-items:end; }
+  code, pre { background:#0b1220; padding:2px 6px; border-radius:4px; font-size:0.9em; white-space:pre-wrap; word-break:break-all; }
+  .badge { display:inline-block; padding:2px 8px; border-radius:999px; font-size:0.8em; background:#334155; }
+</style>
+</head>
+<body>
+<header>
+  <span class="brand">MaxPay</span>
+  <% if (user) { %>
+    <% if (user.role === "customer") { %><a href="/dashboard">Conta</a><a href="/assistant">Assistente</a><% } %>
+    <% if (user.role !== "customer") { %><a href="/review">Revisão</a><% } %>
+    <% if (user.role === "admin") { %><a href="/admin">Admin</a><% } %>
+    <a href="/profile">Perfil</a>
+    <span class="muted" style="margin-left:auto"><%= user.name %> (<%= user.role %>)</span>
+    <form method="post" action="/logout" style="margin:0"><button type="submit">Sair</button></form>
+  <% } %>
+</header>
+<main>

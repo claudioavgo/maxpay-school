@@ -1,0 +1,23 @@
+<%- include("layout-top") %>
+<div class="card">
+  <h2>Assistente financeiro</h2>
+  <p class="muted">O assistente vê apenas as suas transações e não altera nada na conta.</p>
+  <form method="post" action="/assistant" class="row">
+    <input name="question" maxlength="500" style="width:520px" placeholder="Quanto gastei com mercado este mês?" required>
+    <button type="submit">Perguntar</button>
+  </form>
+  <% if (result) { %>
+    <div class="alert <%= result.injectionDetected ? "error" : "ok" %>" style="margin-top:12px">
+      <% if (result.injectionDetected) { %><strong>Tentativa de instrução indevida detectada e registrada.</strong><br><% } %>
+      <%= result.answer %>
+      <div class="muted">provedor: <%= result.provider %>, transações no contexto: <%= result.contextSize %></div>
+    </div>
+  <% } %>
+</div>
+<div class="card">
+  <h3>Histórico</h3>
+  <% for (const h of history) { %>
+    <p><strong>Você:</strong> <%= h.question %><br><strong>Assistente:</strong> <%= h.answer %> <% if (h.injection_detected) { %><span class="badge warn">injeção</span><% } %></p>
+  <% } %>
+</div>
+<%- include("layout-bottom") %>

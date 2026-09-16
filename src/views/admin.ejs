@@ -1,0 +1,16 @@
+<%- include("layout-top") %>
+<div class="card">
+  <h2>Administração</h2>
+  <p><a href="/api/admin/dataset.csv">Exportar dataset anonimizado (CSV)</a> · <a href="/review">Revisão e integridade</a></p>
+  <p class="muted">Flags de vulnerabilidade ativas: <% const on = Object.entries(vuln).filter(([, v]) => v).map(([k]) => k); %><%= on.length ? on.join(", ") : "nenhuma" %></p>
+</div>
+<div class="card">
+  <h2>Eventos de segurança</h2>
+  <table><tr><th>#</th><th>Data</th><th>Tipo</th><th>Sev.</th><th>Usuário</th><th>IP</th><th>Detalhes</th></tr>
+  <% for (const e of events) { %>
+    <tr><td><%= e.id %></td><td><%= e.created_at %></td><td><%= e.type %></td>
+      <td class="<%= e.severity === "critical" ? "bad" : e.severity === "warn" ? "warn" : "" %>"><%= e.severity %></td>
+      <td><%= e.user_id ?? "" %></td><td><%= e.ip ?? "" %></td><td><code><%= e.details ?? "" %></code></td></tr>
+  <% } %></table>
+</div>
+<%- include("layout-bottom") %>

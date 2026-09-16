@@ -1,0 +1,45 @@
+<%- include("layout-top") %>
+<% if (error) { %><div class="alert error"><%= error %></div><% } %>
+<% if (msg) { %><div class="alert ok"><%= msg %></div><% } %>
+<div class="card">
+  <h2>Conta <%= account.number %></h2>
+  <p style="font-size:1.6em;margin:0">Saldo: <strong><%= cents(account.balance_cents) %></strong></p>
+  <p class="muted">Conta nº <%= account.id %>. Extrato assinado: <a href="/api/statement.csv">baixar CSV</a>. Chave pública: <a href="/api/public-key">ver</a>.</p>
+</div>
+<div class="card">
+  <h3>Transferir</h3>
+  <form method="post" action="/transfer" class="row">
+    <label>Conta destino<br><input name="to" placeholder="MP-001003" required></label>
+    <label>Valor (R$)<br><input name="amount" type="text" placeholder="10,00" required></label>
+    <label>Descrição<br><input name="description" maxlength="140" style="width:280px"></label>
+    <button type="submit">Enviar</button>
+  </form>
+</div>
+<div class="card">
+  <h3>Comprovante</h3>
+  <form method="post" action="/receipts" enctype="multipart/form-data" class="row">
+    <input type="file" name="file" required>
+    <button type="submit">Enviar arquivo</button>
+  </form>
+  <% if (receipts.length) { %>
+  <table style="margin-top:12px"><tr><th>Arquivo</th><th>SHA-256</th><th>Tamanho</th><th></th></tr>
+  <% for (const r of receipts) { %>
+    <tr><td><%= r.original_name %></td><td><code><%= r.sha256.slice(0, 16) %>…</code></td><td><%= r.size %> B</td><td><a href="/api/receipts/<%= r.id %>">abrir</a></td></tr>
+  <% } %></table>
+  <% } %>
+</div>
+<div class="card">
+  <h3>Transações</h3>
+  <form method="get" action="/dashboard" class="row"><input name="q" value="<%= q %>" placeholder="buscar na descrição"><button type="submit">Buscar</button></form>
+  <table style="margin-top:12px"><tr><th>#</th><th>Data</th><th>Tipo</th><th>Valor</th><th>Descrição</th><th>Status</th></tr>
+  <% for (const t of transactions) { const credit = t.to_account_id === account.id; %>
+    <tr>
+      <td><%= t.id %></td><td><%= t.created_at.slice(0, 16).replace("T", " ") %></td>
+      <td class="<%= credit ? "ok" : "bad" %>"><%= credit ? "entrada" : "saída" %></td>
+      <td><%= cents(t.amount_cents) %></td>
+      <td><% if (escapeOff()) { %><%- t.description %><% } else { %><%= t.description %><% } %></td>
+      <td><span class="badge <%= t.status === "flagged" ? "warn" : "" %>"><%= t.status %></span></td>
+    </tr>
+  <% } %></table>
+</div>
+<%- include("layout-bottom") %>

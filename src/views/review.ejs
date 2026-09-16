@@ -1,0 +1,22 @@
+<%- include("layout-top") %>
+<div class="card">
+  <h2>Integridade do livro-razão</h2>
+  <p class="<%= ledger.ok ? "ok" : "bad" %>"><%= ledger.ok ? "Íntegro" : "VIOLAÇÃO DETECTADA" %>: <%= ledger.checked %> transações verificadas (hash encadeado + assinatura RSA).</p>
+  <% if (!ledger.ok) { %><ul><% for (const b of ledger.broken) { %><li>Transação #<%= b.id %>: <%= b.reason %></li><% } %></ul><% } %>
+</div>
+<div class="card">
+  <h2>Transações sinalizadas</h2>
+  <table><tr><th>#</th><th>Valor</th><th>Descrição</th><th>Score IA</th><th>Motivo</th></tr>
+  <% for (const t of flagged) { %>
+    <tr><td><%= t.id %></td><td><%= cents(t.amount_cents) %></td>
+      <td><% if (escapeOff()) { %><%- t.description %><% } else { %><%= t.description %><% } %></td>
+      <td class="<%= t.ai.score >= 60 ? "bad" : "warn" %>"><%= t.ai.score %></td><td><%= t.ai.reason %></td></tr>
+  <% } %></table>
+</div>
+<div class="card">
+  <h2>Clientes</h2>
+  <table><tr><th>#</th><th>Nome</th><th>E-mail</th><th>CPF</th><th>MFA</th></tr>
+  <% for (const u of users) { %><tr><td><%= u.id %></td><td><%= u.name %></td><td><%= u.email %></td><td><%= u.cpf %></td><td><%= u.mfa_enabled ? "sim" : "não" %></td></tr><% } %>
+  </table>
+</div>
+<%- include("layout-bottom") %>
