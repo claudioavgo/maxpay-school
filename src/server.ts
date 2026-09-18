@@ -17,6 +17,15 @@ function ensureTlsCert(): { key: Buffer; cert: Buffer } {
 
 validateSecrets();
 await initializeDatabase();
-const app = await buildApp({ logger: true, https: ensureTlsCert() });
-await app.listen({ port: config.port, host: "0.0.0.0" });
-app.log.info(`MaxPay em https://localhost:${config.port}`);
+const isRender = process.env.RENDER === "true";
+const app = await buildApp({
+  logger: true,
+  ...(isRender ? {} : { https: ensureTlsCert() }),
+});
+
+await app.listen({
+  port: config.port,
+  host: "0.0.0.0",
+});
+
+app.log.info(`MaxPay rodando na porta ${config.port}`);
